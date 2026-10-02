@@ -20,32 +20,7 @@ It was built for a bank's compliance team. It runs on an **air-gapped** server w
 - **Operational endpoints** for health, live stats (p50/p95/p99 latency and TTFT), corpus summary and cache control.
 - **Per-user transcripts**, a readable audit log for each client.
 
-## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Ingestion [Ingestion - one-off]
-        A[PDF library] --> B[PyMuPDF text extraction]
-        B -->|scanned pages| C[Vision LLM transcription]
-        B --> D[Paragraph-aware chunking]
-        C --> D
-        D --> E[bge-small embeddings]
-        E --> F[(vectors.npy + meta.jsonl)]
-    end
-
-    subgraph Serving
-        U[Browser UI] -->|POST /ask/stream| G[FastAPI]
-        G --> H[Query gate: profanity, junk, spelling, routing]
-        H --> I[Answer cache]
-        I -->|miss| J[Micro-batched embedder]
-        J --> K[Exact cosine search]
-        F --> K
-        K --> L[Prompt builder: stable prefix, canonical order]
-        L --> M[vLLM: Gemma, prefix cache, n-gram speculation]
-        M -->|SSE tokens| U
-        U -->|click citation| N[PyMuPDF page render + highlight]
-    end
-```
 
 ### Request lifecycle
 
