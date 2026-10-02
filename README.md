@@ -136,11 +136,3 @@ Every setting in `config.py` can be overridden with an environment variable. The
 | `CACHE_SEMANTIC_ENABLED` | `false` | Semantic cache (see `config.py` for why it is off) |
 | `PROFANITY_REFUSE` | `true` | Server-side offensive-language refusal |
 
-## Design decisions
-
-- **No vector database.** At about 40k chunks, an exact NumPy matmul takes about 1 ms and has perfect recall. A database round trip per query would add latency and hold the GIL. HNSW is used automatically only above 150k chunks.
-- **Prompt layout serves the prefix cache.** The system prompt never changes, and sources are ordered by chunk ID rather than by score. Requests that share a prefix therefore reuse its KV cache across users.
-- **Text-only serving.** Scanned pages are transcribed once at ingestion, so the serving model skips loading its vision and audio towers. That memory goes to KV cache instead.
-- **N-gram speculative decoding.** The model is told to quote sources verbatim, so many output tokens already appear in the prompt. Prompt-lookup speculation exploits this at no VRAM cost.
-- **Highlighting is rendered server-side.** The client needs no PDF.js. The same code that finds the quote also draws the box, so the highlight cannot drift.
-- **Refusing beats guessing.** Low-confidence retrieval returns "not found" rather than a plausible but wrong cited answer.
