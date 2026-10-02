@@ -1,0 +1,16 @@
+# Keep the image lean and free of secrets. Note that packages/ and
+# embedding_cache/ are deliberately NOT listed - the air-gapped build copies
+# them in, and static/ must ship so the UI and vendored pdf.js are served.
+venv/
+__pycache__/
+*.pyc
+.git/
+.env
+index/
+dataset/
+gemma-4-E2B-it/
+tests/
+*.tar
+*.zip
+ingest.log
+compliance_rag_application/

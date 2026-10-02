@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Data / runtime artifacts (large, machine-specific, or user data)
+dataset/
+index/
+page_images/
+embedding_cache/
+logs/
+ingest.log
+*.tar
+*.zip
+
+# Editors
+.vscode/
+.idea/

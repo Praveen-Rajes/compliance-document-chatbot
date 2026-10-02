@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amana Compliance Assistant</title>
+  <style>
+    :root {
+      --bg: #faf9f7;
+      --panel: #ffffff;
+      --sidebar: #f2f0ea;
+      --ink: #1f1e1c;
+      --ink-soft: #6b6862;
+      --ink-faint: #97938c;
+      --line: #e5e2da;
+      --line-soft: #efece5;
+      --accent: #c96442;
+      --accent-soft: #f7eee9;
+      --user-bubble: #ecebe6;
+      --ok: #2f7d5c;
+      --warn: #9a6a1c;
+      --warn-bg: #fdf6e7;
+      --danger: #b4453a;
+      --radius: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1f1e1d;
+        --panel: #262625;
+        --sidebar: #191918;
+        --ink: #eeece7;
+        --ink-soft: #a8a49c;
+        --ink-faint: #7d7a76;
+        --line: #3a3936;
+        --line-soft: #302f2d;
+        --accent: #d97757;
+        --accent-soft: #33261f;
+        --user-bubble: #333230;
+        --ok: #6cc39b;
+        --warn: #d8a94e;
+        --warn-bg: #322b1a;
+        --danger: #e0857a;
+      }
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.6;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* ---------- Sidebar ---------- */
+    .sidebar {
+      width: 272px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      transition: transform .25s ease;
+    }
+
+    .sidebar-top {
+      padding: 16px 14px 10px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 6px 14px;
+      font-weight: 600;
+      font-size: 14.5px;
+    }
+
+    .brand-mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .new-chat {
+      width: 100%;
+      padding: 9px 12px;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      font: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .15s, border-color .15s;
+    }
+
+    .new-chat:hover {
+      background: var(--panel);
+      border-color: var(--ink-faint);
+    }
+
+    .new-chat svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .history {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 8px 16px;
+    }
+
+    .history-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      padding: 12px 8px 6px;
+    }
+
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13.5px;
+      color: var(--ink-soft);
+      transition: background .12s;
+    }
+
+    .chat-item:hover {
+      background: var(--panel);
+      color: var(--ink);
+    }
+
+    .chat-item.active {
+      background: var(--panel);
+      color: var(--ink);
+      font-weight: 500;
+    }
+
+    .chat-item-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chat-del {
+      opacity: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--ink-faint);
+      padding: 2px;
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .chat-item:hover .chat-del {
+      opacity: 1;
+    }
+
+    .chat-del:hover {
+      color: var(--danger);
+    }
+
+    .chat-del svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .sidebar-foot {
+      border-top: 1px solid var(--line);
+      padding: 10px 14px;
+      font-size: 11.5px;
+      color: var(--ink-faint);
+    }
+
+    .usage-bar {
+      height: 3px;
+      background: var(--line);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 6px 0 5px;
+    }
+
+    .usage-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width .3s;
+    }
+
+    /* ---------- Main ---------- */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg);
+    }
+
+    .topbar {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--line-soft);
+      flex-shrink: 0;
+    }
+
+    .topbar h1 {
+      font-size: 14.5px;
+      font-weight: 600;
+    }
+
+    .topbar .sub {
+      font-size: 12px;
+      color: var(--ink-faint);
+    }
+
+    .menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--ink);
+    }
+
+    .menu-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    .thread {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 28px 24px 40px;
+    }
+
+    /* ---------- Welcome ---------- */
+    .welcome {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 12vh 24px 40px;
+      text-align: center;
+    }
+
+    .welcome h2 {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -.015em;
+      margin-bottom: 8px;
+    }
+
+    .welcome p {
+      color: var(--ink-soft);
+      font-size: 14.5px;
+      margin-bottom: 28px;
+    }
+
+    .starters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      text-align: left;
+    }
+
+    .starter {
+      padding: 13px 15px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color .15s, transform .15s;
+    }
+
+    .starter:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .starter b {
+      display: block;
+      font-size: 13.5px;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+
+    .starter span {
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    /* ---------- Messages ---------- */
+    .msg {
+      margin-bottom: 26px;
+      animation: rise .25s ease-out;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .msg.user {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .msg.user .bubble {
+      background: var(--user-bubble);
+      padding: 11px 15px;
+      border-radius: 15px;
+      max-width: 82%;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .msg.bot .row {
+      display: flex;
+      gap: 13px;
+    }
+
+    .avatar {
+      width: 25px;
+      height: 25px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      background: var(--accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* rendered answer */
+    .answer {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    .answer p {
+      margin: 0 0 11px;
+    }
+
+    .answer p:last-child {
+      margin-bottom: 0;
+    }
+
+    .answer h3 {
+      font-size: 15px;
+      font-weight: 650;
+      margin: 18px 0 8px;
+    }
+
+    .answer h3:first-child {
+      margin-top: 0;
+    }
+
+    .answer ul,
+    .answer ol {
+      margin: 0 0 12px;
+      padding-left: 22px;
+    }
+
+    .answer li {
+      margin-bottom: 5px;
+    }
+
+    .answer strong {
+      font-weight: 640;
+    }
+
+    .answer code {
+      background: var(--line-soft);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 13px;
+    }
+
+    .answer q {
+      quotes: "“" "”";
+      font-style: italic;
+      color: var(--ink);
+    }
+
+    .cite {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 17px;
+      height: 17px;
+      padding: 0 4px;
+      margin: 0 1px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      vertical-align: 1px;
+      transition: background .12s;
+    }
+
+    .cite:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .credit {
+      margin-top: 5px;
+      font-size: 10.5px;
+      letter-spacing: .02em;
+      color: var(--ink-faint);
+      opacity: .75;
+      text-align: center;
+    }
+
+    .caret {
+      display: inline-block;
+      width: 7px;
+      height: 15px;
+      background: var(--accent);
+      vertical-align: -3px;
+      animation: blink 1s steps(2) infinite;
+      margin-left: 2px;
+      border-radius: 1px;
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    .thinking {
+      display: flex;
+      gap: 5px;
+      padding: 5px 0;
+    }
+
+    .thinking i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--ink-faint);
+      animation: bob 1.3s infinite;
+      display: block;
+    }
+
+    .thinking i:nth-child(2) {
+      animation-delay: .18s;
+    }
+
+    .thinking i:nth-child(3) {
+      animation-delay: .36s;
+    }
+
+    @keyframes bob {
+
+      0%,
+      60%,
+      100% {
+        transform: none;
+        opacity: .45;
+      }
+
+      30% {
+        transform: translateY(-5px);
+        opacity: 1;
+      }
+    }
+
+    .meta-line {
+      font-size: 11.5px;
+      color: var(--ink-faint);
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .tag {
+      padding: 1px 7px;
+      border-radius: 20px;
+      font-size: 10.5px;
+      font-weight: 600;
+      background: var(--line-soft);
+      color: var(--ink-soft);
+    }
+
+    .tag.cache {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* ---------- Composer ---------- */
+    .composer-wrap {
+      padding: 0 24px 20px;
+      flex-shrink: 0;
+    }
+
+    .composer {
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    .notice {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn);
+      color: var(--warn);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 10px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .notice.show {
+      display: flex;
+    }
+
+    .notice button {
+      background: var(--warn);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 5px 11px;
+      font: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .input-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 9px 9px 9px 15px;
+      transition: border-color .15s;
+    }
+
+    .input-box:focus-within {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      flex: 1;
+      border: none;
+      outline: none;
+      resize: none;
+      background: none;
+      color: var(--ink);
+      font: inherit;
+      line-height: 1.5;
+      max-height: 190px;
+      padding: 5px 0;
+    }
+
+    textarea::placeholder {
+      color: var(--ink-faint);
+    }
+
+    .send {
+      width: 31px;
+      height: 31px;
+      border-radius: 8px;
+      border: none;
+      flex-shrink: 0;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: opacity .15s;
+    }
+
+    .send:disabled {
+      opacity: .32;
+      cursor: default;
+    }
+
+    .send svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--ink-faint);
+      margin-top: 8px;
+    }
+
+    /* ---------- PDF modal ---------- */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+      padding: 20px;
+    }
+
+    .overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--panel);
+      width: 100%;
+      max-width: 940px;
+      height: 90vh;
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+
+    .modal-head .t {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .modal-head .t b {
+      font-size: 13.5px;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .modal-head .t span {
+      font-size: 11.5px;
+      color: var(--ink-faint);
+    }
+
+    .icon-btn {
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 15px;
+    }
+
+    .icon-btn:hover {
+      border-color: var(--accent);
+    }
+
+    .icon-btn:disabled {
+      opacity: .35;
+      cursor: default;
+    }
+
+    .pages {
+      flex: 1;
+      overflow: auto;
+      background: #4a4a48;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .pagewrap {
+      position: relative;
+      display: inline-block;
+      margin-bottom: 14px;
+    }
+
+    .pagewrap img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
+      background: #fff;
+    }
+
+    .hl {
+      position: absolute;
+      background: rgba(255, 214, 0, .38);
+      border: 1.5px solid rgba(217, 160, 0, .9);
+      border-radius: 2px;
+      pointer-events: none;
+      animation: pulse 1.6s ease-out 2;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        background: rgba(255, 214, 0, .38);
+      }
+
+      50% {
+        background: rgba(255, 214, 0, .72);
+      }
+    }
+
+    .pdf-note {
+      color: #ddd;
+      font-size: 12.5px;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, .3);
+      border-radius: 8px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+
+    .pdf-frame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: var(--bg);
+      padding: 10px 18px;
+      border-radius: 9px;
+      font-size: 13px;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    ::-webkit-scrollbar {
+      width: 9px;
+      height: 9px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--line);
+      border-radius: 5px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--ink-faint);
+      background-clip: content-box;
+    }
+
+    .backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .4);
+      z-index: 40;
+    }
+
+    @media (max-width: 860px) {
+      .menu-btn {
+        display: grid;
+      }
+
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 50;
+        transform: translateX(-100%);
+      }
+
+      .sidebar.open {
+        transform: none;
+      }
+
+      .backdrop.show {
+        display: block;
+      }
+
+      .thread,
+      .composer {
+        max-width: 100%;
+      }
+
+      .thread {
+        padding: 20px 16px 32px;
+      }
+
+      .composer-wrap {
+        padding: 0 16px 16px;
+      }
+
+      .welcome {
+        padding-top: 8vh;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="backdrop" id="backdrop"></div>
+
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand">
+          <div class="brand-mark">A</div> Compliance Assistant
+        </div>
+        <button class="new-chat" id="newChat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          New chat
+        </button>
+      </div>
+      <div class="history" id="history"></div>
+      <div class="sidebar-foot">
+        <div id="usageText">0 of 20 messages</div>
+        <div class="usage-bar">
+          <div class="usage-fill" id="usageFill"></div>
+        </div>
+        <div id="kbText">&nbsp;</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="topbar">
+        <button class="menu-btn" id="menuBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M3 12h18M3 6h18M3 18h18" />
+          </svg>
+        </button>
+        <div>
+          <h1>Amana Compliance Assistant</h1>
+          <div class="sub" id="topSub">Grounded in the bank's regulatory library</div>
+        </div>
+      </div>
+
+      <div class="scroll" id="scroll">
+        <div class="welcome" id="welcome">
+          <h2>How can I help with compliance today?</h2>
+          <p>Ask about directions, determinations, circulars and policy. Every answer cites the source it came from.</p>
+          <div class="starters">
+            <div class="starter"
+              data-q="What is the maximum loan to value ratio for credit facilities granted in respect of motor vehicles?">
+              <b>Loan to value ratios</b><span>Limits for motor vehicle credit facilities</span>
+            </div>
+            <div class="starter"
+              data-q="What are the minimum capital requirements for licensed commercial banks under Basel III?">
+              <b>Capital adequacy</b><span>Basel III minimum requirements</span>
+            </div>
+            <div class="starter" data-q="What must a licensed bank do when it detects a cyber security event?">
+              <b>Cyber incident reporting</b><span>Obligations and timelines</span>
+            </div>
+            <div class="starter" data-q="Give a brief summary on everything you know">
+              <b>What I cover</b><span>Overview of the whole knowledge base</span>
+            </div>
+          </div>
+        </div>
+        <div class="thread" id="thread" style="display:none"></div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="composer">
+          <div class="notice" id="notice">
+            <span id="noticeText"></span>
+            <button id="noticeBtn">Start new chat</button>
+          </div>
+          <div class="input-box">
+            <textarea id="input" rows="1" placeholder="Ask about a regulation, direction or policy…"></textarea>
+            <button class="send" id="send" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
+            </button>
+          </div>
+          <div class="hint">Answers are grounded in retrieved documents. Verify against the cited source before relying
+            on them.</div>
+          <div class="credit">Developed by R &amp; D team &ndash; IT Department</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- PDF viewer -->
+  <div class="overlay" id="pdfOverlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="t"><b id="pdfName"></b><span id="pdfMeta"></span></div>
+        <button class="icon-btn" id="pdfOpen" title="Open full PDF">↗</button>
+        <button class="icon-btn" id="pdfClose" title="Close">✕</button>
+      </div>
+      <div class="pages" id="pdfPages"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    const LS_KEY = 'amana_chats_v3';
+
+    /* The message cap the UI shows before the server has told it the real one.
+       The server is the authority -- SESSION_MAX_QUESTIONS in docker-compose.yml,
+       falling back to config.py -- and every reply carries the true value, which
+       overwrites this. It existed as three separate literals scattered through
+       the file, so changing the cap in two of them left new chats opening with
+       the old number until the first reply arrived. One constant now. */
+    const DEFAULT_LIMIT = 20;
+    let S = { chats: {}, order: [], current: null };
+    let streaming = false;
+
+    /* ---------------- storage ---------------- */
+    function load() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) S = JSON.parse(raw);
+      } catch (e) { console.warn('cache read failed', e); }
+      if (!S.chats) S = { chats: {}, order: [], current: null };
+      /* The cap is server state that happens to get cached alongside the chat.
+         A conversation saved while the limit was 25 would otherwise keep showing
+         25 forever. Drop it on load and let the server say what it is. */
+      Object.values(S.chats).forEach(c => { delete c.limit; });
+    }
+    function save() {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(S)); }
+      catch (e) { console.warn('cache write failed', e); }
+    }
+
+    function newChat() {
+      const id = 'c' + Date.now();
+      S.chats[id] = { id, title: 'New chat', msgs: [], sessionId: null, used: 0, limit: DEFAULT_LIMIT, at: Date.now() };
+      S.order.unshift(id);
+      S.current = id;
+      save(); renderHistory(); renderThread(); $('input').focus();
+      closeSidebar();
+    }
+    function cur() { return S.chats[S.current]; }
+
+    /* ---------------- markdown-ish rendering ---------------- */
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    function renderAnswer(text, sources, marks) {
+      // Escape first, then re-introduce only the small set of marks we support.
+      let t = esc(text);
+      t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+      // Quoted evidence reads better as a real quotation than as bare marks.
+      t = t.replace(/&quot;([^&]{3,300}?)&quot;/g, '<q>$1</q>');
+      /* Citations become buttons that open the cited page. With the source list
+         gone from under the answer, the button carries the reference itself:
+         hovering names the document and page it will open.
+
+         The number identifies the document, so the same number appears many
+         times in one answer. What each occurrence highlights differs, though --
+         it is the sentence that marker closes -- so the button also records its
+         position among all the markers, and the server sends one highlight
+         target per position. Counting here has to match the server's counting:
+         both walk the markers in order and both skip any with no source. */
+      let k = -1;
+      t = t.replace(/\[(\d+)\]/g, (m, n) => {
+        const i = parseInt(n, 10) - 1;
+        const s = sources && sources[i];
+        if (!s) return m;
+        k++;
+        const ref = (marks && marks[k]) || s;
+        const pg = ref.page ? ` — page ${ref.page}` : '';
+        return `<button class="cite" data-src="${i}" data-mark="${k}" `
+          + `title="${esc(ref.filename + pg)}">${n}</button>`;
+      });
+
+      const out = [];
+      let list = null;
+      for (const raw of t.split('\n')) {
+        const line = raw.trim();
+        if (!line) { if (list) { out.push(`</${list}>`); list = null; } continue; }
+
+        const h = line.match(/^#{1,4}\s+(.*)$/);
+        if (h) { if (list) { out.push(`</${list}>`); list = null; } out.push(`<h3>${h[1]}</h3>`); continue; }
+
+        const ul = line.match(/^[-*•]\s+(.*)$/);
+        const ol = line.match(/^\d+[.)]\s+(.*)$/);
+        if (ul || ol) {
+          const want = ul ? 'ul' : 'ol';
+          if (list && list !== want) { out.push(`</${list}>`); list = null; }
+          if (!list) { out.push(`<${want}>`); list = want; }
+          out.push(`<li>${(ul || ol)[1]}</li>`);
+          continue;
+        }
+        if (list) { out.push(`</${list}>`); list = null; }
+        out.push(`<p>${line}</p>`);
+      }
+      if (list) out.push(`</${list}>`);
+      return out.join('');
+    }
+
+    /* ---------------- rendering ---------------- */
+    function renderHistory() {
+      const h = $('history');
+      h.innerHTML = '';
+      if (!S.order.length) {
+        h.innerHTML = '<div class="history-label">No chats yet</div>';
+        return;
+      }
+      h.innerHTML = '<div class="history-label">Recent</div>';
+      S.order.forEach(id => {
+        const c = S.chats[id];
+        if (!c) return;
+        const el = document.createElement('div');
+        el.className = 'chat-item' + (id === S.current ? ' active' : '');
+        el.innerHTML = `<span class="chat-item-text">${esc(c.title)}</span>
+          <button class="chat-del" title="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+            </svg></button>`;
+        el.onclick = e => {
+          if (e.target.closest('.chat-del')) {
+            delete S.chats[id];
+            S.order = S.order.filter(x => x !== id);
+            if (S.current === id) S.current = S.order[0] || null;
+            if (!S.current) newChat(); else { save(); renderHistory(); renderThread(); }
+            return;
+          }
+          S.current = id; save(); renderHistory(); renderThread(); closeSidebar();
+        };
+        h.appendChild(el);
+      });
+    }
+
+    function renderThread() {
+      const c = cur();
+      const thread = $('thread');
+      thread.innerHTML = '';
+      const empty = !c || !c.msgs.length;
+      $('welcome').style.display = empty ? 'block' : 'none';
+      thread.style.display = empty ? 'none' : 'block';
+      if (!empty) c.msgs.forEach(m => thread.appendChild(
+        m.role === 'user' ? userNode(m.text) : botNode(m.text, m.sources, m.meta, m.marks)));
+      updateUsage();
+      scrollDown();
+    }
+
+    function userNode(text) {
+      const d = document.createElement('div');
+      d.className = 'msg user';
+      d.innerHTML = `<div class="bubble">${esc(text)}</div>`;
+      return d;
+    }
+
+    function botNode(text, sources, meta, marks) {
+      const d = document.createElement('div');
+      d.className = 'msg bot';
+      d.innerHTML = `<div class="row"><div class="avatar">A</div><div class="body">
+        <div class="answer"></div><div class="metabox"></div></div></div>`;
+      d.querySelector('.answer').innerHTML = renderAnswer(text, sources, marks);
+      wireCites(d, sources, marks);
+      if (meta) d.querySelector('.metabox').appendChild(metaNode(meta));
+      return d;
+    }
+
+    function wireCites(root, sources, marks) {
+      root.querySelectorAll('.cite').forEach(b => {
+        const k = parseInt(b.dataset.mark, 10);
+        // Same document either way; the mark carries the sentence to highlight.
+        const ref = (marks && marks[k]) || sources[parseInt(b.dataset.src, 10)];
+        b.onclick = () => openPdf(ref);
+      });
+    }
+
+    function metaNode(meta) {
+      const d = document.createElement('div');
+      d.className = 'meta-line';
+      const bits = [];
+      if (meta.cache && meta.cache !== 'miss') bits.push(`<span class="tag cache">cached</span>`);
+      if (meta.kind) bits.push(`<span class="tag">${esc(meta.kind)}</span>`);
+      if (meta.ttft) bits.push(`first token ${meta.ttft} ms`);
+      if (meta.total) bits.push(`${(meta.total / 1000).toFixed(1)} s`);
+      d.innerHTML = bits.join('');
+      return d;
+    }
+
+    function updateUsage() {
+      const c = cur();
+      const used = c ? (c.used || 0) : 0;
+      const lim = c ? (c.limit || DEFAULT_LIMIT) : DEFAULT_LIMIT;
+      $('usageText').textContent = `${used} of ${lim} messages`;
+      $('usageFill').style.width = Math.min(100, used / lim * 100) + '%';
+      const full = used >= lim;
+      $('notice').classList.toggle('show', full);
+      if (full) $('noticeText').textContent =
+        'This chat has reached its message limit. Start a new chat to continue.';
+      $('input').disabled = full;
+      $('send').disabled = full || streaming || !$('input').value.trim();
+    }
+
+    const scrollDown = () => { const s = $('scroll'); s.scrollTop = s.scrollHeight; };
+
+    /* ---------------- send ---------------- */
+    async function send() {
+      const input = $('input');
+      const q = input.value.trim();
+      if (!q || streaming) return;
+      if (!cur()) newChat();
+      const c = cur();
+      if ((c.used || 0) >= (c.limit || DEFAULT_LIMIT)) return;
+
+      streaming = true;
+      input.value = ''; autosize(); $('send').disabled = true;
+
+      c.msgs.push({ role: 'user', text: q });
+      if (c.msgs.filter(m => m.role === 'user').length === 1)
+        c.title = q.slice(0, 42) + (q.length > 42 ? '…' : '');
+      $('welcome').style.display = 'none';
+      $('thread').style.display = 'block';
+      $('thread').appendChild(userNode(q));
+      renderHistory(); save(); scrollDown();
+
+      // placeholder bot message
+      const node = document.createElement('div');
+      node.className = 'msg bot';
+      node.innerHTML = `<div class="row"><div class="avatar">A</div><div class="body">
+        <div class="answer"><div class="thinking"><i></i><i></i><i></i></div></div>
+        <div class="metabox"></div></div></div>`;
+      $('thread').appendChild(node);
+      scrollDown();
+
+      const answerEl = node.querySelector('.answer');
+      let text = '', sources = [], marks = [], meta = {}, started = false;
+      const t0 = performance.now();
+
+      try {
+        const res = await fetch('/ask/stream', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q, session_id: c.sessionId, mode: 'auto' })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        // EventSource cannot POST, so the SSE stream is parsed by hand.
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '', ev = null;
+
+        for (; ;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+            if (line.startsWith('event:')) { ev = line.slice(6).trim(); continue; }
+            if (!line.startsWith('data:')) continue;
+            const data = JSON.parse(line.slice(5));
+
+            if (ev === 'meta') {
+              meta.kind = data.kind; meta.cache = data.cache;
+              if (data.session) applySession(c, data.session);
+            } else if (ev === 'token') {
+              if (!started) { started = true; answerEl.innerHTML = ''; meta.ttft = Math.round(performance.now() - t0); }
+              text += data.text;
+              answerEl.innerHTML = renderAnswer(text, sources, marks) + '<span class="caret"></span>';
+              scrollDown();
+            } else if (ev === 'sources') {
+              sources = data;
+            } else if (ev === 'done') {
+              meta.total = Math.round(performance.now() - t0);
+              if (data.cache) meta.cache = data.cache;
+              // The server renumbers citations to match the source list, so the
+              // corrected text replaces what we accumulated from the stream.
+              if (data.answer) text = data.answer;
+              if (data.marks) marks = data.marks;
+              if (data.session) applySession(c, data.session);
+            } else if (ev === 'error') {
+              throw new Error(data.detail || 'generation failed');
+            }
+          }
+        }
+
+        answerEl.innerHTML = renderAnswer(text, sources, marks);
+        wireCites(node, sources, marks);
+        node.querySelector('.metabox').appendChild(metaNode(meta));
+        c.msgs.push({ role: 'bot', text, sources, marks, meta });
+        c.at = Date.now();
+        save();
+      } catch (err) {
+        answerEl.innerHTML = `<p style="color:var(--danger)">Could not get a response: ${esc(err.message)}. Please try again.</p>`;
+        toast('Request failed');
+      } finally {
+        streaming = false;
+        $('input').disabled = false;
+        updateUsage();
+        $('input').focus();
+        scrollDown();
+      }
+    }
+
+    function applySession(c, s) {
+      if (s.session_id) c.sessionId = s.session_id;
+      if (typeof s.questions_used === 'number') c.used = s.questions_used;
+      if (typeof s.questions_limit === 'number') c.limit = s.questions_limit;
+      save(); updateUsage();
+    }
+
+    /* ---------------- Document viewer ----------------
+       The whole document is shown, scrollable, opened at the cited page.
+
+       The server returns the real PDF with a genuine highlight annotation drawn
+       on the cited page, and the browser's own viewer renders it. That gives
+       scrolling, zoom, text selection and search for free, with no PDF
+       JavaScript library shipped -- and the highlight is part of the file
+       rather than an overlay that could drift out of alignment.
+
+       The original on disk is never modified; the annotation is applied to a
+       copy in memory. */
+    // seq guards against a slow page lookup landing after a later click.
+    // page is the resolved page, kept so "open in a new tab" agrees with
+    // what the panel is showing.
+    let PDF = { ref: null, page: 1, seq: 0 };
+
+    function docUrl(ref, page) {
+      return '/api/pdf?source=' + encodeURIComponent(ref.source) +
+        '&page=' + page +
+        (ref.quote ? '&highlight=' + encodeURIComponent(ref.quote) : '') +
+        '#page=' + page;
+    }
+
+    /* Ask the server which page actually carries this citation's sentence.
+
+       A citation number names a retrieved passage, which sits on one page, but
+       an answer drawing a dozen points out of one circular attaches them all to
+       that passage -- and most of those points are written on other pages. The
+       page to scroll to is part of the URL, so it has to be settled before the
+       viewer opens. One request per click; nothing on the answer path. */
+    const pageCache = new Map();
+
+    async function resolvePage(ref) {
+      const hint = ref.page || 1;
+      if (!ref.quote) return hint;
+      const key = ref.source + '\u0000' + hint + '\u0000' + ref.quote;
+      if (pageCache.has(key)) return pageCache.get(key);
+      try {
+        const res = await fetch('/api/locate?source=' + encodeURIComponent(ref.source) +
+          '&page=' + hint + '&text=' + encodeURIComponent(ref.quote));
+        if (!res.ok) throw new Error(res.status);
+        const found = (await res.json()).page || hint;
+        pageCache.set(key, found);
+        return found;
+      } catch (err) {
+        console.warn('page lookup failed, opening at the cited page', err);
+        return hint;                      // the document still opens
+      }
+    }
+
+    async function openPdf(ref) {
+      if (!ref) return;
+      PDF.ref = ref;
+      const token = ++PDF.seq;            // a later click must win
+      $('pdfName').textContent = ref.filename;
+      $('pdfMeta').textContent = (ref.folder || '') + ' · finding the passage…';
+      $('pdfPages').innerHTML = '';
+      $('pdfOverlay').classList.add('show');
+
+      const page = await resolvePage(ref);
+      if (token !== PDF.seq) return;      // superseded while we waited
+
+      PDF.page = page;
+      $('pdfMeta').textContent = (ref.folder || '') + ' · opened at page ' + page;
+      $('pdfPages').innerHTML =
+        '<iframe class="pdf-frame" title="' + esc(ref.filename) +
+        '" src="' + docUrl(ref, page) + '"></iframe>';
+    }
+
+    /* ---------------- misc ---------------- */
+    function autosize() {
+      const t = $('input');
+      t.style.height = 'auto';
+      t.style.height = Math.min(t.scrollHeight, 190) + 'px';
+    }
+    let toastTimer;
+    function toast(msg) {
+      $('toast').textContent = msg;
+      $('toast').classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2600);
+    }
+    const closeSidebar = () => {
+      $('sidebar').classList.remove('open');
+      $('backdrop').classList.remove('show');
+    };
+
+    /* ---------------- wire up ---------------- */
+    $('send').onclick = send;
+    $('input').addEventListener('input', () => { autosize(); updateUsage(); });
+    $('input').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    $('newChat').onclick = newChat;
+    $('noticeBtn').onclick = newChat;
+    $('menuBtn').onclick = () => {
+      $('sidebar').classList.add('open');
+      $('backdrop').classList.add('show');
+    };
+    $('backdrop').onclick = closeSidebar;
+    document.querySelectorAll('.starter').forEach(el => {
+      el.onclick = () => { $('input').value = el.dataset.q; autosize(); send(); };
+    });
+    $('pdfClose').onclick = () => { $('pdfOverlay').classList.remove('show'); $('pdfPages').innerHTML = ''; };
+    $('pdfOverlay').onclick = e => { if (e.target === $('pdfOverlay')) $('pdfClose').click(); };
+    // The embedded viewer scrolls the whole document itself, so page-stepping
+    // buttons here would only duplicate its own controls.
+    $('pdfOpen').onclick = () => PDF.ref && window.open(docUrl(PDF.ref, PDF.page), '_blank');
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && $('pdfOverlay').classList.contains('show')) $('pdfClose').click();
+    });
+
+    load();
+    if (!S.current || !S.chats[S.current]) newChat();
+    else { renderHistory(); renderThread(); }
+    autosize();
+
+    fetch('/corpus').then(r => r.json()).then(c => {
+      $('kbText').textContent = `${c.documents.toLocaleString()} documents · ${c.pages.toLocaleString()} pages`;
+      $('topSub').textContent = `${c.documents.toLocaleString()} documents across ${c.folders.length} collections`;
+    }).catch(() => { });
+  </script>
+</body>
+
+</html>

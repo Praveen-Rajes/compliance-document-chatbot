@@ -1,0 +1,163 @@
+# SERVING configuration. This is what runs day to day.
+#
+# vLLM here is text-only, which is the point: scanned pages were already
+# transcribed to text during ingestion, so no request ever carries an image and
+# vLLM can skip loading the vision and audio towers entirely. To run INGESTION,
+# which does need the vision model, layer the override file on top:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ingest.yml up -d vllm
+#
+# Service names are deliberately still `vllm` and `app`, so the commands you are
+# used to still work. Container names and the host port are different from the
+# prototype so both stacks can coexist on disk -- though not both at once on the
+# GPU, see README step 4.
+
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.25.1
+    container_name: vllm_fast
+    ipc: host # vLLM workers need more than the 64 MB default
+    environment:
+      - VLLM_WSL2_ENABLE_PIN_MEMORY=1
+    command:
+      - --model=/model
+      - --served-model-name=google/gemma-4-E2B-it
+      - --max-model-len=8192
+
+      # Text-only serving. Frees the VRAM the vision and audio towers would take
+      # and removes image preprocessing from the request path entirely.
+      - '--limit-mm-per-prompt={"image": 0, "audio": 0}'
+
+      # 24 GB card. Weights are 10.25 GB in bf16, so 0.88 leaves ~11 GB of KV
+      # cache. Gemma 4 E2B is unusually KV-cheap (1 KV head, 20 of 35 layers
+      # share KV, sliding windows capped at 512 tokens), so an 8k sequence is
+      # ~57 MB in bf16 and half that at fp8 -- 50 users fit in under 2 GB.
+      - --gpu-memory-utilization=0.88
+      - --kv-cache-dtype=fp8
+
+      # max-num-seqs is the batch ceiling; 64 covers 50 users with headroom.
+      # max-num-batched-tokens is the TTFT/inter-token dial: chunked prefill
+      # slices long prompts so a burst of them cannot starve users mid-answer.
+      - --max-num-seqs=64
+      - --max-num-batched-tokens=4096
+
+      # The system prompt is byte-identical on every request, so its prefill is
+      # computed once for the life of the server and reused by all 50 users.
+      # Retrieved context is emitted in canonical order so repeat questions about
+      # the same regulation reuse that too.
+      - --enable-prefix-caching
+
+      # >>> IF vLLM FAILS TO START, COMMENT OUT THE NEXT LINE FIRST. <<<
+      # N-gram speculative decoding. The prompt makes the model quote its sources
+      # verbatim, so many output tokens already exist in the prompt -- the exact
+      # case prompt-lookup decoding was built for. Costs no VRAM and is worth
+      # roughly 1.5x on decode. It is also the only flag here that is at all
+      # version-sensitive, so it is the first thing to remove when debugging.
+      - '--speculative-config={"method": "ngram", "num_speculative_tokens": 4, "prompt_lookup_min": 2, "prompt_lookup_max": 6}'
+
+      - --api-key=${VLLM_API_KEY}
+    volumes:
+      - ./gemma-4-E2B-it:/model:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    healthcheck:
+      # curl, not python: the vllm image ships python3 but has NO `python`
+      # on PATH, so a python-based check exits 127 forever. A healthcheck that
+      # can never pass makes `docker compose run` block silently on
+      # `condition: service_healthy`, with no output at all.
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 300s # weight load + CUDA graph capture is slow
+    restart: unless-stopped
+
+  app:
+    build: .
+    # Pinned explicitly. Without this, Compose invents a name from the folder
+    # (here it produced "VLLM-app", having split on the space in the path), so an
+    # image loaded from a .tar would not be recognised and Compose would try to
+    # rebuild -- which fails on a machine with no packages/ folder. A fixed name
+    # means `docker load` works whatever the folder is called.
+    image: compliance-rag-app:latest
+    container_name: compliance_rag_fast
+    ports:
+      - "8001:8001"
+    environment:
+      - VLLM_HOSTS=http://vllm:8000
+      - VLLM_API_KEY=${VLLM_API_KEY}
+      - LLM_MODEL=google/gemma-4-E2B-it
+      - DATASET_DIR=/app/dataset
+      - INDEX_DIR=/app/index
+
+      # Answer length is the single biggest lever on total latency: decoding runs
+      # at roughly 64 tokens/s per user at batch 50 on this card.
+      #
+      # How much each question may use is decided per question TYPE, in
+      # prompts.BUDGETS -- an overview gets 900 tokens and 8 passages, a specific
+      # lookup gets 380 and 4. The two caps below clamp all of those at once, so
+      # the whole system can be made faster from here without editing Python.
+      # 0 means "leave the routed budget alone".
+      #
+      #   ANSWER_TOKEN_CAP=250   every answer at most 250 tokens (faster)
+      #   CONTEXT_CHAR_CAP=3000  less evidence per answer (faster first word)
+      - ANSWER_TOKEN_CAP=0
+      - CONTEXT_CHAR_CAP=0
+
+      # Lowest match score that counts as an answer. Below this the assistant
+      # says it could not find a reference rather than guessing. queryfix raises
+      # it further for very short or unrecognised questions.
+      - MIN_SCORE=0.45
+
+      # Where the per-user transcripts are written, inside the container. The
+      # path on the host is set by the ./logs bind mount below.
+      - LOG_DIR=/app/logs
+      - LOG_USAGE=true
+
+      # Questions per conversation before the UI asks for a new chat. The whole
+      # conversation is kept and sent to the model, so the twentieth question can
+      # still refer back to the first; older answers are trimmed by length rather
+      # than dropped, which is what keeps the prefill cost bounded. This value
+      # overrides the default in config.py, and it is read when the container
+      # starts, so changing it needs a restart, not a rebuild.
+      - SESSION_MAX_QUESTIONS=20
+
+      # Refuse messages containing offensive language outright, even when the
+      # underlying question is valid. Detection is server-side, so it fires on
+      # every request rather than depending on the model choosing to comply.
+      # PROFANITY_MILD=false still refuses strong terms but allows "damn"/"hell".
+      - PROFANITY_REFUSE=true
+      - PROFANITY_MILD=true
+
+      # Backpressure guard, not a throttle. vLLM's continuous batcher is the
+      # real scheduler; beyond this the API returns 503 + Retry-After instead of
+      # letting clients queue until they time out. The prototype's
+      # MAX_CONCURRENT_LLM=30 with 4 worker threads was the opposite: it
+      # throttled to 4 and queued the rest.
+      - MAX_INFLIGHT=128
+
+      - CACHE_ENABLED=true
+    volumes:
+      - ./dataset:/app/dataset:ro
+      # Bind mount, not a named volume: the index survives `docker compose
+      # down -v`, you can inspect and back it up, and it travels with this
+      # folder when you zip it for the L40S server.
+      - ./index:/app/index
+      # Per-user transcripts. A bind mount for the same reason as index/: these
+      # have to survive `docker compose down` and the next image replacement.
+      - ./logs:/app/logs
+    depends_on:
+      vllm:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8001/health')\"" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped

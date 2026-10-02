@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic>=2
+httpx
+numpy
+PyMuPDF
+fastembed>=0.8
+tqdm
+# Optional: only used above ~150k chunks, where approximate search beats exact.
+# hnswlib
